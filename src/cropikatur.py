@@ -57,7 +57,7 @@ def apply_aspect_ratio(image: NDArray, aspect_ratio: Optional[AspectRatio]) -> N
 def crop_image(
     input_path: str,
     output_path: str,
-    imageDebugger: ImageDebugger = NullImageDebugger(),
+    debug: bool = False,
     aspect_ratio: Optional[AspectRatio] = None
 ) -> None:
     """
@@ -66,13 +66,15 @@ def crop_image(
     Args:
         input_path: Path to input image.
         output_path: Path to save cropped image.
-        imageDebugger: Object for debugging intermediate steps.
+        debug: Whether to debug intermediate results.
         aspect_ratio: Aspect ratio to use or None to keep the ratio that is produced after cropping and warping.
     """
+    imageDebugger = ImageDebugger() if debug else NullImageDebugger()
     # Reading the input image
     image = cv2.imread(input_path)
     if image is None:
         print(f"Could not read image {input_path}")
+        imageDebugger.plot()
         return
 
     imageDebugger.add_image("Original", image)
@@ -81,6 +83,7 @@ def crop_image(
     doc_cnt = find_document_contour(image, imageDebugger)
     if doc_cnt is None:
         print(f"Could not find document contour in {input_path}.")
+        imageDebugger.plot()
         return
 
     # Simplify contour slightly
@@ -97,3 +100,4 @@ def crop_image(
     # safe
     cv2.imwrite(output_path, final_image)
     print(f"Cropped image saved to {output_path}")
+    imageDebugger.plot()

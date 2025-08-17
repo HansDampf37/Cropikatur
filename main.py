@@ -1,9 +1,7 @@
 import os
 from pathlib import Path
-from typing import Optional
 
 from src.cropikatur import crop_image, AspectRatio
-from src.debugging import ImageDebugger, NullImageDebugger
 import argparse
 
 
@@ -38,7 +36,7 @@ def main() -> None:
 
     input_path = Path(args.input).resolve()
     output_arg = Path(args.output).resolve() if args.output else None
-    debug_images = ImageDebugger() if args.debug else NullImageDebugger()
+    debug = True if args.debug else False
 
     def is_probably_file(path: Path) -> bool:
         """Returns True if the path looks like a file (has an extension)."""
@@ -62,7 +60,7 @@ def main() -> None:
 
         # Ensure output directory exists
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        crop_image(str(input_path), str(output_path), imageDebugger=debug_images, aspect_ratio=args.aspect_ratio)
+        crop_image(str(input_path), str(output_path), debug=debug, aspect_ratio=args.aspect_ratio)
 
     elif input_path.is_dir():
         if output_arg is None:
@@ -82,9 +80,7 @@ def main() -> None:
 
             input_file = input_path / filename
             output_file = output_dir / filename
-            crop_image(str(input_file), str(output_file), imageDebugger=debug_images, aspect_ratio=args.aspect_ratio)
-
-    debug_images.plot()
+            crop_image(str(input_file), str(output_file), debug=debug, aspect_ratio=args.aspect_ratio)
 
 
 if __name__ == "__main__":

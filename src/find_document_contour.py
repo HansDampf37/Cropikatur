@@ -44,7 +44,7 @@ def find_document_contour(
     # compute how many pixels of the minimum enclosed rectangle are covered by the contour.
     # Filter out contours with a bad coverage as they are likely not similar to a rectangle.
     # From the remaining contours select the one with the largest enclosed area.
-    coverage_threshold = 0.9
+    coverage_threshold = 0.85
     best_contour = None
     best_contour_area = 0
     for i, contour in enumerate(contours):
