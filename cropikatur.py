@@ -1,7 +1,7 @@
 import argparse
 import os
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Dict
 
 import cv2
 import numpy as np
@@ -9,72 +9,99 @@ from numpy.typing import NDArray
 
 
 class ImageDebugger:
-    """Holds intermediate images produced during extraction of rectangle"""
+    """
+    Utility class to store and visualize intermediate images during processing.
+    Used for debugging and understanding internal stages of the pipeline.
+    """
 
     def __init__(self):
-        self.intermediate_images = {}
+        self.intermediate_images: Dict[str, NDArray[np.uint8]] = {}
 
     def add_image(self, name: str, image: NDArray[np.uint8]) -> None:
-        """Adds intermediate image to this class"""
+        """Stores a single intermediate image under a name."""
         self.intermediate_images[name] = image
 
-    def add_contour_image(self, name: str, contours: NDArray[Tuple[int, int]], shape: Tuple[int, int]):
-        """Adds contour image to this class"""
-        contour_image = cv2.drawContours(np.zeros(shape), contours, -1, (255,), -1)
+    def add_contour_image(self, name: str, contours: NDArray[np.int32], shape: Tuple[int, int]) -> None:
+        """
+        Stores a visual representation of given contours drawn on a black image.
+
+        Args:
+            name: Label for the image.
+            contours: Contour array (as returned by cv2.findContours or similar).
+            shape: Shape of the blank canvas (usually the source image shape).
+        """
+        contour_image = cv2.drawContours(np.zeros(shape, dtype=np.uint8), contours, -1, (255,), -1)
         self.add_image(name, contour_image)
 
-    def plot(self):
-        """Plots intermediate images"""
+    def plot(self) -> None:
+        """Plots all stored intermediate images using matplotlib."""
         import matplotlib.pyplot as plt
-        for i, (name, image) in enumerate(self.intermediate_images.items()):
-            plt.imshow(image)
+        for name, image in self.intermediate_images.items():
+            plt.imshow(image, cmap="gray")
             plt.axis('off')
             plt.title(name)
-            plt.yticks(None)
-            plt.xticks(None)
             plt.show()
 
 
 class NullImageDebugger(ImageDebugger):
     """
-    Null Object for IntermediateImages. Can be used to not log and plot any images during cropping process while also
-    preventing checking if IntermediateImages is null.
+    Null object for ImageDebugger.
+    Methods do nothing, allowing easy disabling of debugging without modifying logic.
     """
 
     def add_image(self, name: str, image: NDArray[np.uint8]) -> None:
         pass
 
-    def add_contour_image(self, name: str, contours: NDArray[Tuple[int, int]], shape: Tuple[int, int]) -> None:
+    def add_contour_image(self, name: str, contours: NDArray[np.int32], shape: Tuple[int, int]) -> None:
         pass
 
     def plot(self) -> None:
         pass
 
 
-def order_points(pts):
+def order_points(pts: NDArray[np.float32]) -> NDArray[np.float32]:
+    """
+    Orders 4 points in consistent top-left, top-right, bottom-right, bottom-left order.
+
+    Args:
+        pts: 4x2 array of points
+
+    Returns:
+        4x2 array of ordered points
+    """
     rect = np.zeros((4, 2), dtype="float32")
     s = pts.sum(axis=1)
-    rect[0] = pts[np.argmin(s)]  # top-left
-    rect[2] = pts[np.argmax(s)]  # bottom-right
-
     diff = np.diff(pts, axis=1)
-    rect[1] = pts[np.argmin(diff)]  # top-right
-    rect[3] = pts[np.argmax(diff)]  # bottom-left
+
+    rect[0] = pts[np.argmin(s)]      # top-left
+    rect[2] = pts[np.argmax(s)]      # bottom-right
+    rect[1] = pts[np.argmin(diff)]   # top-right
+    rect[3] = pts[np.argmax(diff)]   # bottom-left
+
     return rect
 
 
-def four_point_transform(image, pts):
+def four_point_transform(image: NDArray[np.uint8], pts: NDArray[np.float32]) -> NDArray[np.uint8]:
+    """
+    Applies a perspective transform to extract the region bounded by pts.
+
+    Args:
+        image: Input image.
+        pts: 4x2 array of corner points.
+
+    Returns:
+        Warped top-down view of the selected region.
+    """
     rect = order_points(pts)
     (tl, tr, br, bl) = rect
 
-    # compute width and height of the new image
     widthA = np.linalg.norm(br - bl)
     widthB = np.linalg.norm(tr - tl)
-    maxWidth = max(int(widthA), int(widthB))
-
     heightA = np.linalg.norm(tr - br)
     heightB = np.linalg.norm(tl - bl)
-    maxHeight = max(int(heightA), int(heightB))
+
+    maxWidth = int(max(widthA, widthB))
+    maxHeight = int(max(heightA, heightB))
 
     dst = np.array([
         [0, 0],
@@ -86,13 +113,26 @@ def four_point_transform(image, pts):
     return cv2.warpPerspective(image, M, (maxWidth, maxHeight))
 
 
-def find_document_contour(image, debugImages: ImageDebugger) -> NDArray:
+def find_document_contour(
+    image: NDArray[np.uint8],
+    debugImages: ImageDebugger
+) -> Optional[NDArray[np.float32]]:
+    """
+    Detects the document-like contour in the image.
+
+    Args:
+        image: Input BGR image.
+        debugImages: Debug object to store intermediate images.
+
+    Returns:
+        Array of 4 corner points representing the detected document, or None if not found.
+    """
     # 1. convert to Grayscale
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     debugImages.add_image("Gray", gray)
     # 2. scale image down to a fixed size
     img_width, img_height = gray.shape
-    scaling_factor = 300 / (max(img_width, img_height))
+    scaling_factor = 300 / max(img_width, img_height)
     scaled_down = cv2.resize(gray, (0, 0), fx=scaling_factor, fy=scaling_factor)
     debugImages.add_image("ScaledDown", scaled_down)
     # 3. blur with gaussian kernel
@@ -152,7 +192,19 @@ def find_document_contour(image, debugImages: ImageDebugger) -> NDArray:
     return None
 
 
-def crop_image(input_path: str, output_path: Optional[str] = None, imageDebugger: ImageDebugger = NullImageDebugger()):
+def crop_image(
+    input_path: str,
+    output_path: Optional[str] = None,
+    imageDebugger: ImageDebugger = NullImageDebugger()
+) -> None:
+    """
+    Detects and crops the document from an input image and saves the result.
+
+    Args:
+        input_path: Path to input image.
+        output_path: Optional path to save cropped image. If None, uses auto-naming.
+        imageDebugger: Object for debugging intermediate steps.
+    """
     if output_path is None:
         splits = input_path.split(".")
         splits[-2] += "_cropped"
@@ -164,6 +216,7 @@ def crop_image(input_path: str, output_path: Optional[str] = None, imageDebugger
         print(f"Could not read image {input_path}")
         imageDebugger.plot()
         return
+
     imageDebugger.add_image("Original", image)
 
     # Find the contour of the document
@@ -180,31 +233,32 @@ def crop_image(input_path: str, output_path: Optional[str] = None, imageDebugger
     imageDebugger.plot()
 
 
-def main():
+def main() -> None:
+    """
+    Command-line entry point.
+    Parses arguments and applies document cropping to an image or a folder of images.
+    """
     parser = argparse.ArgumentParser(description="Crop image to detected paper edges.")
     parser.add_argument("input", help="Path to input image or folder")
     parser.add_argument("--debug", action="store_true", help="Show debug images (if flag is set)")
     args = parser.parse_args()
-    args.input = args.input if not args.input.endswith("/") else args.input[:-1]  # remove trailing /
-    debugImages = ImageDebugger() if args.debug else NullImageDebugger()
-    if args.input is not None:
-        if Path(args.input).is_file():
-            crop_image(args.input, imageDebugger=debugImages)
-        else:
-            # iterate over files in dir
-            for filename in os.listdir(args.input):
-                filepath = os.path.join(args.input, filename)
-                if os.path.isfile(filepath):
-                    if not filename.endswith(".jpg") and not filename.endswith(".png") and not filename.endswith(
-                            ".jpeg"):
-                        print(f"Skipping {filepath} due to format incompatibility.")
-                        continue
 
-                    output_dir = args.input + "_cropped"
-                    if not os.path.exists(output_dir):
-                        os.makedirs(output_dir)
-                    output_file_path = os.path.join(output_dir, filename)
-                    crop_image(filepath, output_file_path, imageDebugger=debugImages)
+    args.input = args.input.rstrip("/")  # remove trailing slash
+    debugImages = ImageDebugger() if args.debug else NullImageDebugger()
+
+    if Path(args.input).is_file():
+        crop_image(args.input, imageDebugger=debugImages)
+    else:
+        # iterate over files in dir
+        for filename in os.listdir(args.input):
+            filepath = os.path.join(args.input, filename)
+            if os.path.isfile(filepath) and filename.lower().endswith((".jpg", ".png", ".jpeg")):
+                output_dir = args.input + "_cropped"
+                os.makedirs(output_dir, exist_ok=True)
+                output_file_path = os.path.join(output_dir, filename)
+                crop_image(filepath, output_file_path, imageDebugger=debugImages)
+            else:
+                print(f"Skipping {filepath} due to format incompatibility.")
 
 
 if __name__ == "__main__":
