@@ -1,8 +1,8 @@
 import os
 from pathlib import Path
 
-from cropikatur import crop_image
-from debugging import ImageDebugger, NullImageDebugger
+from src.cropikatur import crop_image
+from src.debugging import ImageDebugger, NullImageDebugger
 
 
 def main() -> None:

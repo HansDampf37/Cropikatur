@@ -3,6 +3,7 @@ from typing import Dict, Tuple
 import cv2
 import numpy as np
 from numpy.typing import NDArray
+import matplotlib.pyplot as plt
 
 
 class ImageDebugger:
@@ -30,9 +31,16 @@ class ImageDebugger:
         contour_image = cv2.drawContours(np.zeros(shape, dtype=np.uint8), contours, -1, (255,), -1)
         self.add_image(name, contour_image)
 
+    def add_points(self, name: str, points: NDArray, shape: Tuple[int]):
+        points_image = np.zeros(shape=shape)
+        # Draw points as circles
+        for pt in points:
+            cv2.circle(points_image, tuple(pt), radius=11, color=(1.0,), thickness=-1)
+        self.add_image(name, points_image)
+
+
     def plot(self) -> None:
         """Plots all stored intermediate images using matplotlib."""
-        import matplotlib.pyplot as plt
         for name, image in self.intermediate_images.items():
             plt.imshow(image, cmap="gray")
             plt.axis('off')
