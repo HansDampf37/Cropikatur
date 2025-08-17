@@ -108,13 +108,10 @@ def find_document_contour(image, debugImages: ImageDebugger) -> NDArray:
     contours = sorted(contours, key=lambda c: cv2.contourArea(c) + cv2.arcLength(c, True), reverse=True)[:5]
     simplified_contours = [cv2.approxPolyDP(c, 0.02 * cv2.arcLength(c, True), True) for c in contours]
     debugImages.add_contour_image("Contours simplified", simplified_contours, edged.shape)
-    # 7. Select largest simplified contour with 4 corners
-    for c in simplified_contours:
-        if len(c) == 4:
-            debugImages.add_contour_image("Identified Contour", [c], edged.shape)
-            return c.reshape(4, 2) / scaling_factor
-    # 8. (Only as Fallback) If no 4-point contour found, consider only contours that fit the smallest enclosing rectangle nicely.
-    # and select the largest one of these contours
+    # 7. Select largest simplified contour by the following policy:
+    # compute how many pixels of the minimum enclosed rectangle are covered by the contour.
+    # Filter out contours with a bad coverage as they are likely not similar to a rectangle.
+    # From the remaining contours select the one with the largest enclosed area.
     coverage_threshold = 0.7
     candidates = []
     for i, c in enumerate(simplified_contours):
@@ -122,9 +119,6 @@ def find_document_contour(image, debugImages: ImageDebugger) -> NDArray:
         best_enclosing_rect = cv2.minAreaRect(c)
         box = cv2.boxPoints(best_enclosing_rect)
         box = np.int32(box)
-
-        width, height = best_enclosing_rect[1]
-        area = width * height
 
         # Compute coverage between rectangle and contour
         rect_mask = np.zeros(edged.shape, dtype=np.uint8)
@@ -138,16 +132,22 @@ def find_document_contour(image, debugImages: ImageDebugger) -> NDArray:
 
         if iou >= coverage_threshold:
             candidates.append({
-                "area": area,
+                "area": cv2.contourArea(c),
                 "box": box,
+                "contour": c,
             })
 
     # Choose the rectangle with the largest area among those with good coverage
     if candidates:
-        best_candidate = max(candidates, key=lambda x: x["area"])  # choose by area
+        best_candidate = max(candidates, key=lambda x: x["area"])
+        best_contour = best_candidate["contour"]
         best_box = best_candidate["box"]
-        debugImages.add_contour_image("Best Rotated Rectangle", [best_box], edged.shape)
-        return best_box.astype(np.float32) / scaling_factor
+        if len(best_contour) == 4:
+            debugImages.add_contour_image("Best Bounds", [best_contour], edged.shape)
+            return best_contour.reshape(4, 2) / scaling_factor
+        else:
+            debugImages.add_contour_image("Best Bounds", [best_box], edged.shape)
+            return best_box.astype(np.float32) / scaling_factor
 
     return None
 
@@ -183,7 +183,7 @@ def crop_image(input_path: str, output_path: Optional[str] = None, imageDebugger
 def main():
     parser = argparse.ArgumentParser(description="Crop image to detected paper edges.")
     parser.add_argument("input", help="Path to input image or folder")
-    parser.add_argument("--debug", help="Show debug images", default=False)
+    parser.add_argument("--debug", action="store_true", help="Show debug images (if flag is set)")
     args = parser.parse_args()
     args.input = args.input if not args.input.endswith("/") else args.input[:-1]  # remove trailing /
     debugImages = ImageDebugger() if args.debug else NullImageDebugger()
