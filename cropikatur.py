@@ -99,7 +99,7 @@ def find_document_contour(image, debugImages: ImageDebugger) -> NDArray:
     blurred = cv2.GaussianBlur(scaled_down, (7, 7), 0)
     debugImages.add_image("Blurred", blurred)
     # 4. apply canny edge detection
-    edged = cv2.Canny(blurred, 50, 200)
+    edged = cv2.Canny(blurred, 30, 100)
     debugImages.add_image("Edges", edged)
     # 5. find contours
     contours, _ = cv2.findContours(edged.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
