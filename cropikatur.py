@@ -1,62 +1,10 @@
-import argparse
-import os
-from pathlib import Path
 from typing import Optional, Tuple, Dict
 
 import cv2
 import numpy as np
 from numpy.typing import NDArray
 
-
-class ImageDebugger:
-    """
-    Utility class to store and visualize intermediate images during processing.
-    Used for debugging and understanding internal stages of the pipeline.
-    """
-
-    def __init__(self):
-        self.intermediate_images: Dict[str, NDArray[np.uint8]] = {}
-
-    def add_image(self, name: str, image: NDArray[np.uint8]) -> None:
-        """Stores a single intermediate image under a name."""
-        self.intermediate_images[name] = image
-
-    def add_contour_image(self, name: str, contours: NDArray[np.int32], shape: Tuple[int, int]) -> None:
-        """
-        Stores a visual representation of given contours drawn on a black image.
-
-        Args:
-            name: Label for the image.
-            contours: Contour array (as returned by cv2.findContours or similar).
-            shape: Shape of the blank canvas (usually the source image shape).
-        """
-        contour_image = cv2.drawContours(np.zeros(shape, dtype=np.uint8), contours, -1, (255,), -1)
-        self.add_image(name, contour_image)
-
-    def plot(self) -> None:
-        """Plots all stored intermediate images using matplotlib."""
-        import matplotlib.pyplot as plt
-        for name, image in self.intermediate_images.items():
-            plt.imshow(image, cmap="gray")
-            plt.axis('off')
-            plt.title(name)
-            plt.show()
-
-
-class NullImageDebugger(ImageDebugger):
-    """
-    Null object for ImageDebugger.
-    Methods do nothing, allowing easy disabling of debugging without modifying logic.
-    """
-
-    def add_image(self, name: str, image: NDArray[np.uint8]) -> None:
-        pass
-
-    def add_contour_image(self, name: str, contours: NDArray[np.int32], shape: Tuple[int, int]) -> None:
-        pass
-
-    def plot(self) -> None:
-        pass
+from debugging import ImageDebugger, NullImageDebugger
 
 
 def order_points(pts: NDArray[np.float32]) -> NDArray[np.float32]:
@@ -194,7 +142,7 @@ def find_document_contour(
 
 def crop_image(
     input_path: str,
-    output_path: Optional[str] = None,
+    output_path: str,
     imageDebugger: ImageDebugger = NullImageDebugger()
 ) -> None:
     """
@@ -202,14 +150,9 @@ def crop_image(
 
     Args:
         input_path: Path to input image.
-        output_path: Optional path to save cropped image. If None, uses auto-naming.
+        output_path: Path to save cropped image.
         imageDebugger: Object for debugging intermediate steps.
     """
-    if output_path is None:
-        splits = input_path.split(".")
-        splits[-2] += "_cropped"
-        output_path = ".".join(splits)
-
     # Reading the input image
     image = cv2.imread(input_path)
     if image is None:
@@ -231,35 +174,3 @@ def crop_image(
     cv2.imwrite(output_path, warped)
     print(f"Cropped image saved to {output_path}")
     imageDebugger.plot()
-
-
-def main() -> None:
-    """
-    Command-line entry point.
-    Parses arguments and applies document cropping to an image or a folder of images.
-    """
-    parser = argparse.ArgumentParser(description="Crop image to detected paper edges.")
-    parser.add_argument("input", help="Path to input image or folder")
-    parser.add_argument("--debug", action="store_true", help="Show debug images (if flag is set)")
-    args = parser.parse_args()
-
-    args.input = args.input.rstrip("/")  # remove trailing slash
-    debugImages = ImageDebugger() if args.debug else NullImageDebugger()
-
-    if Path(args.input).is_file():
-        crop_image(args.input, imageDebugger=debugImages)
-    else:
-        # iterate over files in dir
-        for filename in os.listdir(args.input):
-            filepath = os.path.join(args.input, filename)
-            if os.path.isfile(filepath) and filename.lower().endswith((".jpg", ".png", ".jpeg")):
-                output_dir = args.input + "_cropped"
-                os.makedirs(output_dir, exist_ok=True)
-                output_file_path = os.path.join(output_dir, filename)
-                crop_image(filepath, output_file_path, imageDebugger=debugImages)
-            else:
-                print(f"Skipping {filepath} due to format incompatibility.")
-
-
-if __name__ == "__main__":
-    main()
