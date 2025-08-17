@@ -3,30 +3,24 @@
 A command-line tool to automatically detect and crop documents (like scanned pages or sheets of paper) from images using OpenCV.
 Supports batch cropping of entire folders and produces perspective-corrected outputs.
 
----
+## Example
 
-## 📸 Example
-
-Input:
-
-![Original Image](docs/1.jpg)
-
-Output:
-
-![Cropped Image](docs/1_cropped.jpg)
+<p align="center">
+  <img src="docs/1.jpg" alt="Input" width="45%" />
+  <img src="docs/1_cropped.jpg" alt="Output" width="45%" />
+</p>
 
 ---
 
-## 🚀 Features
+## Features
 
 - Detects rectangular paper-like documents in images
 - Automatically applies perspective correction
 - Works with individual files or entire folders
-- Cross-platform: Linux, macOS, Windows
 - Optional debugging view of intermediate image processing steps
 ---
 
-## 📦 Setup
+## Setup
 
 ### Requirements
 - tested on python 3.12.11
