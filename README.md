@@ -32,12 +32,12 @@ pip install -r requirements.txt
 
 ## Run
 ```bash
-python cropikatur input.jpg               # saves as input_cropped.jpg
-python cropikatur input.jpg output.jpg    # saves as output.jpg
-python cropikatur folder/                 # batch mode: outputs to folder_cropped/
-python cropikatur folder/ output_folder/  # batch mode with custom output folder
-python cropikatur folder/ output_folder/ --aspect-ratio Ax             # like above but with set aspect ratio
-python cropikatur folder/ output_folder/ --debug --aspect-ratio "16/9" # like above but with set aspect ratio and debug mode
+cropikatur input.jpg               # saves as input_cropped.jpg
+cropikatur input.jpg output.jpg    # saves as output.jpg
+cropikatur folder/                 # batch mode: outputs to folder_cropped/
+cropikatur folder/ output_folder/  # batch mode with custom output folder
+cropikatur folder/ output_folder/ --aspect-ratio Ax             # like above but with set aspect ratio
+cropikatur folder/ output_folder/ --debug --aspect-ratio "16/9" # like above but with set aspect ratio and debug mode
 ```
 
 Optionally, intermediate steps can be shown when using the `--debug` flag
