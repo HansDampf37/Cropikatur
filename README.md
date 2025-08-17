@@ -32,11 +32,23 @@ pip install -r requirements.txt
 
 ## Run
 ```bash
-python cli.py input.jpg               # saves as input_cropped.jpg
-python cli.py input.jpg output.jpg    # saves as output.jpg
-python cli.py folder/                 # batch mode: outputs to folder_cropped/
-python cli.py folder/ output_folder/  # batch mode with custom output folder
+python cropikatur input.jpg               # saves as input_cropped.jpg
+python cropikatur input.jpg output.jpg    # saves as output.jpg
+python cropikatur folder/                 # batch mode: outputs to folder_cropped/
+python cropikatur folder/ output_folder/  # batch mode with custom output folder
+python cropikatur folder/ output_folder/ --aspect-ratio Ax             # like above but with set aspect ratio
+python cropikatur folder/ output_folder/ --debug --aspect-ratio "16/9" # like above but with set aspect ratio and debug mode
 ```
 
 Optionally, intermediate steps can be shown when using the `--debug` flag
+Optionally, it is possible to specify an aspect ratio. All images within this batch are then rescaled to this aspect ratio.
+Available ratios include:
+- Ax (like A4, A5, A6, ...)
+- Bx (like B4, B5, B6, ...)
+- Cx (like C4, C5, C6, ...)
+- 16/9
+- 3/2
+- square
+
+Note that using aspect ratios never decreases the resolution.
 
