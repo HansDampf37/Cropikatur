@@ -47,9 +47,9 @@ def find_document_contour(
     coverage_threshold = 0.9
     best_contour = None
     best_contour_area = 0
-    for i, c in enumerate(contours):
-        debugImages.add_contour_image(f"{i}: {len(c)} corners", [c], edged.shape)
-        best_enclosing_rect = cv2.minAreaRect(c)
+    for i, contour in enumerate(contours):
+        debugImages.add_contour_image(f"{i}: {len(contour)} corners", [contour], edged.shape)
+        best_enclosing_rect = cv2.minAreaRect(contour)
         box = cv2.boxPoints(best_enclosing_rect)
         box = np.int32(box)
 
@@ -57,15 +57,15 @@ def find_document_contour(
         rect_mask = np.zeros(edged.shape, dtype=np.uint8)
         contour_mask = np.zeros(edged.shape, dtype=np.uint8)
         cv2.drawContours(rect_mask, [box], -1, 255, thickness=-1)
-        cv2.drawContours(contour_mask, [c], -1, 255, thickness=-1)
+        cv2.drawContours(contour_mask, [contour], -1, 255, thickness=-1)
 
         intersection = np.logical_and(rect_mask, contour_mask).sum()
         union = np.logical_or(rect_mask, contour_mask).sum()
         iou = intersection / union if union > 0 else 0
 
-        if iou >= coverage_threshold and cv2.contourArea(c) > best_contour_area:
-            best_contour = c
-            best_contour_area = cv2.contourArea(c)
+        if iou >= coverage_threshold and cv2.contourArea(contour) > best_contour_area:
+            best_contour = contour
+            best_contour_area = cv2.contourArea(contour)
 
     if best_contour is not None:
         debugImages.add_contour_image("Best Bounds", [best_contour], edged.shape)
